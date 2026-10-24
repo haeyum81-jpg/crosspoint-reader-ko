@@ -65,7 +65,7 @@ class TxtReaderMenuActivity final : public UiListActivity {
   const std::vector<StrId> orientationLabels = {StrId::STR_PORTRAIT, StrId::STR_LANDSCAPE_CW, StrId::STR_INVERTED,
                                                 StrId::STR_LANDSCAPE_CCW};
   // Auto-turn rate options match the EPUB reader to keep behavior consistent.
-  const std::vector<const char*> pageTurnLabels = {I18N.get(StrId::STR_STATE_OFF), "1", "3", "6", "12"};
+  const std::vector<const char*> pageTurnLabels = {I18N.get(StrId::STR_STATE_OFF), "5", "10", "15", "20", "25", "30", "45", "60"};
   // Long-press multi-page jump options. Index 0 = OFF (single-page navigation
   // unchanged); other entries become the jump step when the navigation button
   // is held >= 1 second.

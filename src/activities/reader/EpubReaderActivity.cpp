@@ -20,6 +20,7 @@
 #include <iterator>
 #include <limits>
 
+#include "AutoPageTurn.h"
 #include "../../util/BookmarkFile.h"
 #include "BookmarkEntry.h"
 #include "ChapterBuildGate.h"
@@ -57,7 +58,6 @@ namespace {
 // fresh page needs the HALF ghost-cleanup and closing re-renders the page.
 bool xteinkClassPanel() { return gpio.isXteinkDevice() || BoardConfig::isX4Pro() || BoardConfig::isX4Classic(); }
 
-constexpr int PAGE_TURN_RATES[] = {1, 1, 3, 6, 12};
 constexpr size_t initialBookmarkCacheCapacity = 16;
 constexpr float bookmarkProgressEpsilon = 0.0001f;
 
@@ -1194,13 +1194,13 @@ void EpubReaderActivity::applyOrientation(const uint8_t orientation) {
 }
 
 void EpubReaderActivity::toggleAutoPageTurn(const uint8_t selectedPageTurnOption) {
-  if (selectedPageTurnOption == 0 || selectedPageTurnOption >= std::size(PAGE_TURN_RATES)) {
+  if (selectedPageTurnOption == 0 || selectedPageTurnOption >= autoturn::COUNT) {
     automaticPageTurnActive = false;
     return;
   }
 
   lastPageTurnTime = millis();
-  pageTurnDuration = (1UL * 60 * 1000) / PAGE_TURN_RATES[selectedPageTurnOption];
+  pageTurnDuration = autoturn::intervalMs(selectedPageTurnOption);
   automaticPageTurnActive = true;
 
   const uint8_t statusBarHeight = UITheme::getInstance().getStatusBarHeight();
@@ -2045,7 +2045,7 @@ void EpubReaderActivity::renderStatusBar() const {
   } else if (note != bleturner::LinkNote::None) {
     title = note == bleturner::LinkNote::Connecting ? tr(STR_BT_CONNECTING) : tr(STR_BT_FAILED);
   } else if (automaticPageTurnActive) {
-    title = tr(STR_AUTO_TURN_ENABLED) + std::to_string(60 * 1000 / pageTurnDuration);
+    title = tr(STR_AUTO_TURN_ENABLED) + std::to_string(pageTurnDuration / 1000UL);
     const uint8_t statusBarHeight = UITheme::getInstance().getStatusBarHeight();
     if (statusBarHeight == 0 || statusBarHeight == UITheme::getInstance().getProgressBarHeight()) {
       textYOffset += UITheme::getInstance().getMetrics().statusBarVerticalMargin;
@@ -2728,9 +2728,9 @@ std::string EpubReaderActivity::moreRowValue(int row) const {
     case MA::ROTATE_SCREEN:
       return I18N.get(kOrient[SETTINGS.orientation % CrossPointSettings::ORIENTATION_COUNT]);
     case MA::AUTO_PAGE_TURN:
-      return (autoTurnOption == 0 || autoTurnOption >= static_cast<int>(std::size(PAGE_TURN_RATES)))
+      return (autoTurnOption == 0 || autoTurnOption >= static_cast<int>(autoturn::COUNT))
                  ? std::string(tr(STR_STATE_OFF))
-                 : std::to_string(PAGE_TURN_RATES[autoTurnOption]);
+                 : std::to_string(autoturn::SECONDS[autoTurnOption]);
     case MA::NIGHT_MODE:
       return SETTINGS.screenInverted ? tr(STR_STATE_ON) : tr(STR_STATE_OFF);
     case MA::FRONTLIGHT:
@@ -2769,9 +2769,9 @@ void EpubReaderActivity::activateMoreRow(int row) {
     }
     case MA::AUTO_PAGE_TURN: {
       std::vector<std::string> labels;
-      labels.reserve(std::size(PAGE_TURN_RATES));
+      labels.reserve(autoturn::COUNT);
       labels.emplace_back(tr(STR_STATE_OFF));
-      for (size_t i = 1; i < std::size(PAGE_TURN_RATES); ++i) labels.push_back(std::to_string(PAGE_TURN_RATES[i]));
+      for (size_t i = 1; i < autoturn::COUNT; ++i) labels.push_back(std::to_string(autoturn::SECONDS[i]));
       overlayPopup.show(StrId::STR_AUTO_TURN_PAGES_PER_MIN, labels, autoTurnOption, [this](int idx) {
         autoTurnOption = idx;
         toggleAutoPageTurn(static_cast<uint8_t>(idx));

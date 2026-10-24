@@ -12,6 +12,7 @@
 
 #include <cstring>
 
+#include "AutoPageTurn.h"
 #include "CrossPointSettings.h"
 #include "EpubReaderPercentSelectionActivity.h"
 #include "MappedInputManager.h"
@@ -30,11 +31,6 @@ constexpr size_t CHUNK_SIZE = 8 * 1024;  // 8KB chunk for reading
 // can reset to the start if the user changed font/margin/etc. since last read.
 constexpr uint32_t PROGRESS_MAGIC = 0x54585450;  // "TXTP"
 constexpr uint8_t PROGRESS_VERSION = 2;          // v2 adds extraParagraphSpacing + paragraphIndent
-
-// Auto page-turn options in pages-per-minute. Index 0 disables; the rest mirror
-// the EPUB reader's choices so users see consistent values across formats.
-constexpr int PAGE_TURN_RATES[] = {1, 1, 3, 6, 12};
-constexpr size_t PAGE_TURN_RATES_COUNT = sizeof(PAGE_TURN_RATES) / sizeof(PAGE_TURN_RATES[0]);
 
 // Long-press multi-page jump steps. Index 0 disables (long-press behaves like
 // a normal page turn); other entries become the jump distance.
@@ -470,12 +466,12 @@ void TxtReaderActivity::applyOrientation(const uint8_t orientation) {
 
 void TxtReaderActivity::toggleAutoPageTurn(const uint8_t selectedPageTurnOption) {
   currentPageTurnOption = selectedPageTurnOption;
-  if (selectedPageTurnOption == 0 || selectedPageTurnOption >= PAGE_TURN_RATES_COUNT) {
+  if (selectedPageTurnOption == 0 || selectedPageTurnOption >= autoturn::COUNT) {
     automaticPageTurnActive = false;
     return;
   }
   lastPageTurnTime = millis();
-  pageTurnDuration = (1UL * 60 * 1000) / static_cast<unsigned long>(PAGE_TURN_RATES[selectedPageTurnOption]);
+  pageTurnDuration = autoturn::intervalMs(selectedPageTurnOption);
   automaticPageTurnActive = true;
   requestUpdate();
 }
@@ -1073,8 +1069,8 @@ void TxtReaderActivity::renderStatusBar() const {
   std::string title;
   if (automaticPageTurnActive && pageTurnDuration > 0) {
     // Mirror the EPUB reader: while auto-turn is on, override the title with
-    // the current pages-per-minute rate so the user can verify it.
-    title = std::string(tr(STR_AUTO_TURN_ENABLED)) + std::to_string(60UL * 1000UL / pageTurnDuration);
+    // the current seconds-per-page interval so the user can verify it.
+    title = std::string(tr(STR_AUTO_TURN_ENABLED)) + std::to_string(pageTurnDuration / 1000UL);
   } else if (SETTINGS.statusBarSpec().showsTitle()) {
     title = txt->getTitle();
   }
